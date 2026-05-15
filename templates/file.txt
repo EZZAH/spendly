@@ -1,0 +1,2 @@
+add 2 links to the footer in @templates/base.html:
+for the term and condistion and Privacy policies, both shoukld be text link and no spacial style needed for now, point both to the "google.com" as a placeholder science page did. ot active yet
