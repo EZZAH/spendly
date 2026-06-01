@@ -1,4 +1,6 @@
 import sqlite3
+import time
+from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, g
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -6,6 +8,11 @@ from database.db import get_db, init_db, seed_db
 
 app = Flask(__name__)
 app.secret_key = "spendly-secret-key-change-in-production"
+
+# Session timeout configuration (in seconds)
+SESSION_IDLE_TIMEOUT = 1800  # 30 minutes
+SESSION_ABSOLUTE_TIMEOUT = 86400  # 24 hours
+SESSION_TIMEOUT_WARNING = 300  # 5 minutes before logout
 
 
 def login_required(f):
@@ -22,7 +29,30 @@ def load_logged_in_user():
     user_id = session.get("user_id")
     if user_id is None:
         g.user = None
+        g.idle_deadline = None
     else:
+        current_time = time.time()
+        login_time = session.get("login_time")
+        last_activity = session.get("last_activity")
+
+        if login_time is None or last_activity is None:
+            session.clear()
+            return redirect(url_for("login"))
+
+        time_since_login = current_time - login_time
+        time_since_activity = current_time - last_activity
+
+        if time_since_login > SESSION_ABSOLUTE_TIMEOUT:
+            session.clear()
+            return redirect(url_for("login", expired="true"))
+
+        if time_since_activity > SESSION_IDLE_TIMEOUT:
+            session.clear()
+            return redirect(url_for("login", expired="true"))
+
+        session["last_activity"] = current_time
+        g.idle_deadline = current_time + (SESSION_IDLE_TIMEOUT - time_since_activity)
+
         db = get_db()
         cursor = db.cursor()
         cursor.execute("SELECT id, name, email FROM users WHERE id = ?", (user_id,))
@@ -76,7 +106,10 @@ def register():
                 user_id = cursor.lastrowid
                 db.close()
 
+                current_time = time.time()
                 session["user_id"] = user_id
+                session["login_time"] = current_time
+                session["last_activity"] = current_time
                 return redirect(url_for("profile"))
             except sqlite3.IntegrityError:
                 error = "Email already registered."
@@ -116,7 +149,10 @@ def login():
                 error = "Invalid email or password."
 
         if error is None:
+            current_time = time.time()
             session["user_id"] = user["id"]
+            session["login_time"] = current_time
+            session["last_activity"] = current_time
             return redirect(url_for("profile"))
 
         return render_template("login.html", error=error)
