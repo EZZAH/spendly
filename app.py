@@ -2,7 +2,7 @@ import sqlite3
 import time
 from datetime import datetime
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, g
+from flask import Flask, render_template, request, redirect, url_for, session, g, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from database.db import get_db, init_db, seed_db
 
@@ -152,7 +152,7 @@ def login():
         if error is None:
             db = get_db()
             cursor = db.cursor()
-            cursor.execute("SELECT id, password_hash FROM users WHERE email = ?", (email,))
+            cursor.execute("SELECT id, name, password_hash FROM users WHERE email = ?", (email,))
             user = cursor.fetchone()
             db.close()
 
@@ -166,6 +166,8 @@ def login():
             session["user_id"] = user["id"]
             session["login_time"] = current_time
             session["last_activity"] = current_time
+
+            flash(f"Welcome back, {user['name']}!", "success")
 
             next_page = request.args.get("next")
             if next_page and is_safe_redirect_url(next_page):
