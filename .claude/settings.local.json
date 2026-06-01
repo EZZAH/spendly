@@ -9,7 +9,16 @@
       "Bash(git push *)",
       "Bash(sqlite3 *)",
       "Bash(pkill -f \"python app.py\")",
-      "Bash(curl -s http://127.0.0.1:5001)"
+      "Bash(curl -s http://127.0.0.1:5001)",
+      "Bash(curl -s -X POST http://127.0.0.1:5001/register -d 'name=Test User 2&email=test@example.com&password=password123&confirm_password=password123' -H 'Content-Type: application/x-www-form-urlencoded')",
+      "Bash(curl -s -X POST http://127.0.0.1:5001/register -d 'name=Short Pass&email=short@example.com&password=pass123&confirm_password=pass123' -H 'Content-Type: application/x-www-form-urlencoded')",
+      "Bash(lsof -ti:5001)",
+      "Bash(xargs kill -9)",
+      "Bash(pytest tests/test_registration.py -v)",
+      "Bash(python *)",
+      "Bash(curl *)",
+      "Bash(pytest tests/test_login.py::test_logout_clears_session -v)",
+      "Bash(pytest *)"
     ]
   }
 }
