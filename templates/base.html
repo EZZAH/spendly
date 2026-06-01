@@ -21,8 +21,8 @@
             <div class="nav-links">
                 {% if g.user %}
                     <a href="{{ url_for('profile') }}">{{ g.user['name'] }}</a>
-                    <form method="POST" action="{{ url_for('logout') }}" style="display: inline;">
-                        <button type="submit" class="nav-logout">Sign out</button>
+                    <form id="logoutForm" method="POST" action="{{ url_for('logout') }}" style="display: inline;">
+                        <button type="button" class="nav-logout" onclick="showLogoutModal()">Sign out</button>
                     </form>
                 {% else %}
                     <a href="{{ url_for('login') }}">Sign in</a>
@@ -47,6 +47,22 @@
             </div>
         </div>
     </footer>
+
+    <div id="logoutModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Sign out?</h2>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to sign out?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeLogoutModal()">Cancel</button>
+                <button type="button" class="btn-confirm" onclick="confirmLogout()">Sign out</button>
+            </div>
+        </div>
+    </div>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% block scripts %}{% endblock %}
