@@ -15,11 +15,24 @@ SESSION_ABSOLUTE_TIMEOUT = 86400  # 24 hours
 SESSION_TIMEOUT_WARNING = 300  # 5 minutes before logout
 
 
+def is_safe_redirect_url(target_url):
+    """Validate that redirect URL is safe (same host, no open redirect)."""
+    from urllib.parse import urlparse, urljoin
+
+    if not target_url:
+        return False
+
+    parsed = urlparse(target_url)
+    base_url = urljoin(request.host_url, "/")
+
+    return target_url.startswith("/") or parsed.netloc == urlparse(request.host_url).netloc
+
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
-            return redirect(url_for("login"))
+            return redirect(url_for("login", next=request.url))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -153,6 +166,10 @@ def login():
             session["user_id"] = user["id"]
             session["login_time"] = current_time
             session["last_activity"] = current_time
+
+            next_page = request.args.get("next")
+            if next_page and is_safe_redirect_url(next_page):
+                return redirect(next_page)
             return redirect(url_for("profile"))
 
         return render_template("login.html", error=error)
