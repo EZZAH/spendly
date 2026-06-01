@@ -52,15 +52,20 @@ def test_register_password_too_short(client):
 
 
 def test_register_duplicate_email(client):
-    client.post(
-        "/register",
-        data={
-            "name": "First User",
-            "email": "duplicate@example.com",
-            "password": "password123",
-            "confirm_password": "password123",
-        },
-    )
+    from werkzeug.security import generate_password_hash
+    from database.db import get_db
+    from app import app
+
+    with app.app_context():
+        db = get_db()
+        cursor = db.cursor()
+        password_hash = generate_password_hash("password123")
+        cursor.execute(
+            "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+            ("First User", "duplicate@example.com", password_hash),
+        )
+        db.commit()
+        db.close()
 
     response = client.post(
         "/register",
@@ -73,6 +78,36 @@ def test_register_duplicate_email(client):
     )
     assert response.status_code == 200
     assert b"already registered" in response.data
+
+
+def test_login_page_redirects_logged_in_user(client):
+    client.post(
+        "/login",
+        data={
+            "email": "demo@spendly.com",
+            "password": "demo123",
+        },
+        follow_redirects=False,
+    )
+
+    response = client.get("/login", follow_redirects=False)
+    assert response.status_code == 302
+    assert "/profile" in response.location
+
+
+def test_register_page_redirects_logged_in_user(client):
+    client.post(
+        "/login",
+        data={
+            "email": "demo@spendly.com",
+            "password": "demo123",
+        },
+        follow_redirects=False,
+    )
+
+    response = client.get("/register", follow_redirects=False)
+    assert response.status_code == 302
+    assert "/profile" in response.location
 
 
 def test_register_missing_name(client):

@@ -1,4 +1,6 @@
 import sqlite3
+import time
+from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, g
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -7,12 +9,30 @@ from database.db import get_db, init_db, seed_db
 app = Flask(__name__)
 app.secret_key = "spendly-secret-key-change-in-production"
 
+# Session timeout configuration (in seconds)
+SESSION_IDLE_TIMEOUT = 1800  # 30 minutes
+SESSION_ABSOLUTE_TIMEOUT = 86400  # 24 hours
+SESSION_TIMEOUT_WARNING = 300  # 5 minutes before logout
+
+
+def is_safe_redirect_url(target_url):
+    """Validate that redirect URL is safe (same host, no open redirect)."""
+    from urllib.parse import urlparse, urljoin
+
+    if not target_url:
+        return False
+
+    parsed = urlparse(target_url)
+    base_url = urljoin(request.host_url, "/")
+
+    return target_url.startswith("/") or parsed.netloc == urlparse(request.host_url).netloc
+
 
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
-            return redirect(url_for("login"))
+            return redirect(url_for("login", next=request.url))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -22,7 +42,30 @@ def load_logged_in_user():
     user_id = session.get("user_id")
     if user_id is None:
         g.user = None
+        g.idle_deadline = None
     else:
+        current_time = time.time()
+        login_time = session.get("login_time")
+        last_activity = session.get("last_activity")
+
+        if login_time is None or last_activity is None:
+            session.clear()
+            return redirect(url_for("login"))
+
+        time_since_login = current_time - login_time
+        time_since_activity = current_time - last_activity
+
+        if time_since_login > SESSION_ABSOLUTE_TIMEOUT:
+            session.clear()
+            return redirect(url_for("login", expired="true"))
+
+        if time_since_activity > SESSION_IDLE_TIMEOUT:
+            session.clear()
+            return redirect(url_for("login", expired="true"))
+
+        session["last_activity"] = current_time
+        g.idle_deadline = current_time + (SESSION_IDLE_TIMEOUT - time_since_activity)
+
         db = get_db()
         cursor = db.cursor()
         cursor.execute("SELECT id, name, email FROM users WHERE id = ?", (user_id,))
@@ -41,6 +84,9 @@ def landing():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    if g.user is not None:
+        return redirect(url_for("profile"))
+
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip()
@@ -73,7 +119,10 @@ def register():
                 user_id = cursor.lastrowid
                 db.close()
 
+                current_time = time.time()
                 session["user_id"] = user_id
+                session["login_time"] = current_time
+                session["last_activity"] = current_time
                 return redirect(url_for("profile"))
             except sqlite3.IntegrityError:
                 error = "Email already registered."
@@ -86,6 +135,9 @@ def register():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if g.user is not None:
+        return redirect(url_for("profile"))
+
     if request.method == "POST":
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "")
@@ -110,7 +162,14 @@ def login():
                 error = "Invalid email or password."
 
         if error is None:
+            current_time = time.time()
             session["user_id"] = user["id"]
+            session["login_time"] = current_time
+            session["last_activity"] = current_time
+
+            next_page = request.args.get("next")
+            if next_page and is_safe_redirect_url(next_page):
+                return redirect(next_page)
             return redirect(url_for("profile"))
 
         return render_template("login.html", error=error)
