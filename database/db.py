@@ -37,20 +37,29 @@ def init_db():
         )
     """)
 
-    cursor.execute("""
-        ALTER TABLE users
-        ADD COLUMN failed_login_attempts INTEGER DEFAULT 0
-    """)
+    try:
+        cursor.execute("""
+            ALTER TABLE users
+            ADD COLUMN failed_login_attempts INTEGER DEFAULT 0
+        """)
+    except sqlite3.OperationalError:
+        pass
 
-    cursor.execute("""
-        ALTER TABLE users
-        ADD COLUMN last_login TEXT
-    """)
+    try:
+        cursor.execute("""
+            ALTER TABLE users
+            ADD COLUMN last_login TEXT
+        """)
+    except sqlite3.OperationalError:
+        pass
 
-    cursor.execute("""
-        ALTER TABLE users
-        ADD COLUMN locked_until TEXT
-    """)
+    try:
+        cursor.execute("""
+            ALTER TABLE users
+            ADD COLUMN locked_until TEXT
+        """)
+    except sqlite3.OperationalError:
+        pass
 
     conn.commit()
     conn.close()
