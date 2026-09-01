@@ -26,6 +26,7 @@ from database.db import (
 )
 from database.queries import (
     delete_expense_by_id,
+    get_admin_chart_data,
     get_all_expenses,
     get_category_breakdown,
     get_expense_by_id,
@@ -367,7 +368,22 @@ def admin_expenses():
         return redirect(url_for("login"))
     if not is_admin(session["user_id"]):
         abort(403)
-    return render_template("admin_expenses.html", expenses=get_all_expenses())
+
+    allowed = {"user", "date", "category", "description", "amount"}
+    sort = request.args.get("sort", "date")
+    order = request.args.get("order", "desc")
+    if sort not in allowed:
+        sort = "date"
+    if order not in ("asc", "desc"):
+        order = "desc"
+
+    return render_template(
+        "admin_expenses.html",
+        expenses=get_all_expenses(sort=sort, order=order),
+        chart_data=get_admin_chart_data(),
+        sort=sort,
+        order=order,
+    )
 
 
 if __name__ == "__main__":

@@ -5,18 +5,65 @@
 
 {% block head %}
 <style>
-.admin-page { max-width: 1100px; margin: 2.5rem auto; padding: 0 1.5rem; }
-.admin-heading { font-family: var(--font-display); font-size: 1.75rem; margin-bottom: 0.25rem; }
-.admin-sub { color: var(--ink-muted); margin-bottom: 2rem; font-size: 0.95rem; }
+/* ── layout ─────────────────────────────────────────── */
+.admin-page        { max-width: 1100px; margin: 2.5rem auto; padding: 0 1.5rem; }
+.admin-heading     { font-family: var(--font-display); font-size: 1.75rem; margin-bottom: 0.25rem; }
+.admin-sub         { color: var(--ink-muted); margin-bottom: 2rem; font-size: 0.95rem; }
+
+/* ── charts ─────────────────────────────────────────── */
+.chart-grid        { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 2rem; }
+@media (max-width: 700px) { .chart-grid { grid-template-columns: 1fr; } }
+
+.chart-card        { background: var(--paper-card); border: 1px solid var(--border);
+                     border-radius: var(--radius-md); padding: 1.25rem 1.5rem; }
+.chart-title       { font-size: 0.85rem; font-weight: 600; color: var(--ink-soft);
+                     text-transform: uppercase; letter-spacing: .05em; margin-bottom: 1rem; }
+.chart-canvas-wrap { position: relative; }
+
+/* ── table ──────────────────────────────────────────── */
 .admin-table-wrapper { overflow-x: auto; border-radius: var(--radius-md); border: 1px solid var(--border); }
-.admin-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-.admin-table thead { background: var(--paper-warm); }
-.admin-table th { padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: var(--ink-soft); border-bottom: 1px solid var(--border); white-space: nowrap; }
-.admin-table td { padding: 0.7rem 1rem; border-bottom: 1px solid var(--border-soft); color: var(--ink); }
+.admin-table         { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.admin-table thead   { background: var(--paper-warm); }
+.admin-table th      { padding: .75rem 1rem; text-align: left; font-weight: 600;
+                       color: var(--ink-soft); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.admin-table th a    { color: inherit; text-decoration: none; display: flex; align-items: center; gap: .4rem; }
+.admin-table th a:hover  { color: var(--accent); }
+.sort-icon           { font-size: .75rem; opacity: .5; }
+.sort-icon--active   { opacity: 1; color: var(--accent); }
+.admin-table td      { padding: .7rem 1rem; border-bottom: 1px solid var(--border-soft); }
 .admin-table tbody tr:last-child td { border-bottom: none; }
-.admin-table tbody tr:hover { background: var(--paper-warm); }
-.admin-amount { font-variant-numeric: tabular-nums; text-align: right; }
-.admin-empty { text-align: center; padding: 2rem; color: var(--ink-muted); }
+.admin-table tbody tr:hover         { background: var(--paper-warm); }
+.admin-amount  { font-variant-numeric: tabular-nums; text-align: right; }
+.admin-empty   { text-align: center; padding: 2rem; color: var(--ink-muted); }
+
+/* ── viz tokens (palette reference instance) ─────────── */
+.viz-root {
+  --surface:      #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-muted:   #898781;
+  --gridline:     #e1e0d9;
+  /* categorical slots 1-7 */
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .viz-root {
+    --surface:      #1a1a19;
+    --text-primary: #ffffff;
+    --text-muted:   #898781;
+    --gridline:     #2c2c2a;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+    --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9;
+  }
+}
+:root[data-theme="dark"] .viz-root {
+  --surface:      #1a1a19;
+  --text-primary: #ffffff;
+  --text-muted:   #898781;
+  --gridline:     #2c2c2a;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9;
+}
 </style>
 {% endblock %}
 
@@ -25,16 +72,42 @@
     <h1 class="admin-heading">All Expenses</h1>
     <p class="admin-sub">Admin view — {{ expenses | length }} record{{ 's' if expenses | length != 1 }}</p>
 
+    <!-- Charts -->
+    <div class="chart-grid viz-root" id="viz-root">
+        <div class="chart-card">
+            <div class="chart-title">Total by User</div>
+            <div class="chart-canvas-wrap">
+                <canvas id="chartUser"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Total by Category</div>
+            <div class="chart-canvas-wrap">
+                <canvas id="chartCategory"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sortable table -->
     <div class="admin-table-wrapper">
         <table class="admin-table">
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>User</th>
-                    <th>Date</th>
-                    <th>Category</th>
-                    <th>Description</th>
-                    <th class="admin-amount">Amount (₹)</th>
+                    {% set cols = [('user','User'),('date','Date'),('category','Category'),('description','Description'),('amount','Amount')] %}
+                    {% for col_key, col_label in cols %}
+                    {% set next_order = 'asc' if (sort == col_key and order == 'desc') else 'desc' %}
+                    <th class="{{ 'admin-amount' if col_key == 'amount' else '' }}">
+                        <a href="{{ url_for('admin_expenses', sort=col_key, order=next_order) }}">
+                            {{ col_label }}
+                            {% if sort == col_key %}
+                                <span class="sort-icon sort-icon--active">{{ '▲' if order == 'asc' else '▼' }}</span>
+                            {% else %}
+                                <span class="sort-icon">⇅</span>
+                            {% endif %}
+                        </a>
+                    </th>
+                    {% endfor %}
                 </tr>
             </thead>
             <tbody>
@@ -43,11 +116,9 @@
                     <td>{{ e.id }}</td>
                     <td>{{ e.user_name }}</td>
                     <td>{{ e.date }}</td>
-                    <td>
-                        <span class="cat-badge cat-badge--{{ e.category | lower }}">{{ e.category }}</span>
-                    </td>
+                    <td><span class="cat-badge cat-badge--{{ e.category | lower }}">{{ e.category }}</span></td>
                     <td>{{ e.description or '—' }}</td>
-                    <td class="admin-amount">{{ e.amount }}</td>
+                    <td class="admin-amount">₹{{ e.amount }}</td>
                 </tr>
                 {% else %}
                 <tr><td colspan="6" class="admin-empty">No expenses found.</td></tr>
@@ -56,4 +127,86 @@
         </table>
     </div>
 </div>
+
+<!-- Chart data injected from Flask -->
+<script>
+const CHART_DATA = {{ chart_data | tojson }};
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+    /* read CSS tokens from .viz-root */
+    const root  = document.getElementById('viz-root');
+    const cs    = getComputedStyle(root);
+    const token = (v) => cs.getPropertyValue(v).trim();
+
+    const surface  = token('--surface');
+    const textMut  = token('--text-muted');
+    const gridline = token('--gridline');
+    const slots    = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7'].map(token);
+
+    Chart.defaults.font.family = 'DM Sans, system-ui, sans-serif';
+    Chart.defaults.font.size   = 12;
+    Chart.defaults.color       = token('--text-primary');
+
+    function buildBar(ctx, labels, values, colors) {
+        return new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors,
+                    borderRadius: { topRight: 4, bottomRight: 4 },
+                    borderSkipped: 'left',
+                    barThickness: 22,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ' ₹' + ctx.parsed.x.toLocaleString('en-IN', { minimumFractionDigits: 2 })
+                        }
+                    },
+                    datalabels: false,
+                },
+                scales: {
+                    x: {
+                        grid:  { color: gridline, lineWidth: 1 },
+                        border: { display: false },
+                        ticks: {
+                            color: textMut,
+                            callback: (v) => '₹' + (v / 1000).toFixed(0) + 'k'
+                        }
+                    },
+                    y: {
+                        grid:  { display: false },
+                        border: { display: false },
+                        ticks: { color: token('--text-primary') }
+                    }
+                }
+            }
+        });
+    }
+
+    /* User chart — each user gets the next categorical slot */
+    const uLabels = CHART_DATA.per_user.map(d => d.name);
+    const uValues = CHART_DATA.per_user.map(d => d.total);
+    const uColors = uLabels.map((_, i) => slots[i % slots.length]);
+    buildBar(document.getElementById('chartUser'), uLabels, uValues, uColors);
+
+    /* Category chart — each category gets the next categorical slot */
+    const cLabels = CHART_DATA.per_category.map(d => d.name);
+    const cValues = CHART_DATA.per_category.map(d => d.total);
+    const cColors = cLabels.map((_, i) => slots[i % slots.length]);
+    buildBar(document.getElementById('chartCategory'), cLabels, cValues, cColors);
+})();
+</script>
 {% endblock %}

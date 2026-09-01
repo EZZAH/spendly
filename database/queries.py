@@ -172,12 +172,43 @@ def get_category_breakdown(user_id, date_from=None, date_to=None):
     ]
 
 
-def get_all_expenses():
+def get_admin_chart_data():
+    conn = get_db()
+
+    user_rows = conn.execute(
+        "SELECT u.name, ROUND(SUM(e.amount), 2) AS total "
+        "FROM expenses e JOIN users u ON e.user_id = u.id "
+        "GROUP BY u.id ORDER BY total DESC"
+    ).fetchall()
+
+    cat_rows = conn.execute(
+        "SELECT category, ROUND(SUM(amount), 2) AS total "
+        "FROM expenses GROUP BY category ORDER BY total DESC"
+    ).fetchall()
+
+    conn.close()
+    return {
+        "per_user": [{"name": r["name"], "total": r["total"]} for r in user_rows],
+        "per_category": [{"name": r["category"], "total": r["total"]} for r in cat_rows],
+    }
+
+
+def get_all_expenses(sort="date", order="desc"):
+    allowed_sorts = {
+        "user":        "u.name",
+        "date":        "e.date",
+        "category":    "e.category",
+        "description": "e.description",
+        "amount":      "e.amount",
+    }
+    sort_col = allowed_sorts.get(sort, "e.date")
+    sort_dir = "ASC" if order == "asc" else "DESC"
+
     conn = get_db()
     rows = conn.execute(
         "SELECT e.id, u.name AS user_name, e.amount, e.category, e.date, e.description "
         "FROM expenses e JOIN users u ON e.user_id = u.id "
-        "ORDER BY e.date DESC, u.name"
+        f"ORDER BY {sort_col} {sort_dir}"
     ).fetchall()
     conn.close()
     return [
@@ -185,6 +216,7 @@ def get_all_expenses():
             "id": r["id"],
             "user_name": r["user_name"],
             "amount": "{:,.2f}".format(r["amount"]),
+            "amount_raw": r["amount"],
             "category": r["category"],
             "date": datetime.strptime(r["date"], "%Y-%m-%d").strftime("%d %b %Y"),
             "description": r["description"] or "",
