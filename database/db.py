@@ -59,6 +59,25 @@ def get_user_by_email(email):
     return user
 
 
+def get_user_password_hash(user_id):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT password_hash FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    conn.close()
+    return row["password_hash"] if row else None
+
+
+def update_user_password(user_id, new_password):
+    conn = get_db()
+    conn.execute(
+        "UPDATE users SET password_hash = ? WHERE id = ?",
+        (generate_password_hash(new_password), user_id),
+    )
+    conn.commit()
+    conn.close()
+
+
 def seed_db():
     conn = get_db()
 

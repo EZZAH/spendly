@@ -71,8 +71,15 @@
     padding: 2rem;
 }
 
-.profile-add-btn {
+.profile-actions {
     margin-left: auto;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.profile-add-btn {
     white-space: nowrap;
 }
 

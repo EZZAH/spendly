@@ -14,7 +14,15 @@ from flask import (
 )
 from werkzeug.security import check_password_hash
 
-from database.db import create_user, get_db, get_user_by_email, init_db, seed_db
+from database.db import (
+    create_user,
+    get_db,
+    get_user_by_email,
+    get_user_password_hash,
+    init_db,
+    seed_db,
+    update_user_password,
+)
 from database.queries import (
     delete_expense_by_id,
     get_category_breakdown,
@@ -297,6 +305,40 @@ def edit_expense(id):
     update_expense(id, session["user_id"], amount, category, expense_date, description)
     flash("Expense updated.", "success")
     return redirect(url_for("profile"))
+
+
+@app.route("/profile/change-password", methods=["GET", "POST"])
+def change_password():
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        current_password = request.form.get("current_password", "")
+        new_password = request.form.get("new_password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if not all([current_password, new_password, confirm_password]):
+            flash("All fields are required.", "error")
+            return render_template("change_password.html")
+
+        if len(new_password) < 6:
+            flash("New password must be at least 6 characters.", "error")
+            return render_template("change_password.html")
+
+        if new_password != confirm_password:
+            flash("New passwords do not match.", "error")
+            return render_template("change_password.html")
+
+        stored_hash = get_user_password_hash(session["user_id"])
+        if not check_password_hash(stored_hash, current_password):
+            flash("Current password is incorrect.", "error")
+            return render_template("change_password.html")
+
+        update_user_password(session["user_id"], new_password)
+        flash("Password updated successfully.", "success")
+        return redirect(url_for("profile"))
+
+    return render_template("change_password.html")
 
 
 @app.route("/expenses/<int:id>/delete", methods=["POST"])

@@ -19,7 +19,10 @@
                 <p class="profile-email">{{ user.email }}</p>
                 <p class="profile-since">Member since {{ user.member_since }}</p>
             </div>
-            <a href="{{ url_for('add_expense') }}" class="btn-primary profile-add-btn">+ Add Expense</a>
+            <div class="profile-actions">
+                <a href="{{ url_for('add_expense') }}" class="btn-primary profile-add-btn">+ Add Expense</a>
+                <a href="{{ url_for('change_password') }}" class="btn-ghost profile-add-btn">Change Password</a>
+            </div>
         </div>
 
         <!-- Filter bar -->
