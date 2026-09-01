@@ -20,11 +20,13 @@ from database.db import (
     get_user_by_email,
     get_user_password_hash,
     init_db,
+    is_admin,
     seed_db,
     update_user_password,
 )
 from database.queries import (
     delete_expense_by_id,
+    get_all_expenses,
     get_category_breakdown,
     get_expense_by_id,
     get_recent_transactions,
@@ -50,6 +52,11 @@ CATEGORIES = [
 with app.app_context():
     init_db()
     seed_db()
+
+
+@app.context_processor
+def inject_admin():
+    return {"current_user_is_admin": is_admin(session.get("user_id"))}
 
 
 def _parse_date(val):
@@ -352,6 +359,15 @@ def delete_expense(id):
 
     delete_expense_by_id(id, session["user_id"])
     return redirect(url_for("profile"))
+
+
+@app.route("/admin/expenses")
+def admin_expenses():
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+    if not is_admin(session["user_id"]):
+        abort(403)
+    return render_template("admin_expenses.html", expenses=get_all_expenses())
 
 
 if __name__ == "__main__":

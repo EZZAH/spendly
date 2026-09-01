@@ -21,6 +21,7 @@ def init_db():
             name          TEXT    NOT NULL,
             email         TEXT    UNIQUE NOT NULL,
             password_hash TEXT    NOT NULL,
+            is_admin      INTEGER DEFAULT 0,
             created_at    TEXT    DEFAULT (datetime('now'))
         );
 
@@ -66,6 +67,15 @@ def get_user_password_hash(user_id):
     ).fetchone()
     conn.close()
     return row["password_hash"] if row else None
+
+
+def is_admin(user_id):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT is_admin FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    conn.close()
+    return bool(row and row["is_admin"])
 
 
 def update_user_password(user_id, new_password):

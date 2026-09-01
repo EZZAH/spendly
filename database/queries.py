@@ -170,3 +170,24 @@ def get_category_breakdown(user_id, date_from=None, date_to=None):
         }
         for r, pct in zip(rows, pcts)
     ]
+
+
+def get_all_expenses():
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT e.id, u.name AS user_name, e.amount, e.category, e.date, e.description "
+        "FROM expenses e JOIN users u ON e.user_id = u.id "
+        "ORDER BY e.date DESC, u.name"
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "id": r["id"],
+            "user_name": r["user_name"],
+            "amount": "{:,.2f}".format(r["amount"]),
+            "category": r["category"],
+            "date": datetime.strptime(r["date"], "%Y-%m-%d").strftime("%d %b %Y"),
+            "description": r["description"] or "",
+        }
+        for r in rows
+    ]
